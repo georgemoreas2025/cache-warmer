@@ -1,0 +1,26 @@
+name: Keep page cache warm
+# Requests the most visited public pages every 5 minutes, as a phone and as a computer, so the host's page cache
+# (10 minutes) rarely goes cold and first visits get the cached copy (~0.1-0.4 s) instead of a fresh build (~1.5 s).
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Request pages
+        run: |
+          PHONE='Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'
+          IPHONE='Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
+          DESK='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'
+          while read -r u; do
+            [ -z "$u" ] && continue
+            for ua in "$PHONE" "$IPHONE" "$DESK"; do
+              curl -s -o /dev/null --compressed -A "$ua" -w "%{http_code} %{time_starttransfer}s $u\n" "$u" || true
+            done
+          done < urls.txt
